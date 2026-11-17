@@ -1,0 +1,80 @@
+
+name: Build Conrad Desktop Apps
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build Windows executable
+        run: |
+          pyinstaller --noconfirm --clean --noconsole --onefile --name ConradCategorizer conrad_app.py
+
+      - name: Upload Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConradCategorizer-Windows
+          path: dist/ConradCategorizer.exe
+
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: AppleSilicon
+          - runner: macos-15-intel
+            arch: Intel
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build macOS application
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onedir --name ConradCategorizer conrad_app.py
+
+      - name: Package macOS app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            "dist/ConradCategorizer.app" \
+            "dist/ConradCategorizer-${{ matrix.arch }}.zip"
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConradCategorizer-macOS-${{ matrix.arch }}
+          path: dist/ConradCategorizer-${{ matrix.arch }}.zip
